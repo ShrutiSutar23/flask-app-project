@@ -34,7 +34,7 @@ jobs:
         with:
             context: .
             push: true
-        tags: shruti9023/flask-auth-devops:latest
+            tags: shruti9023/flask-auth-devops:latest
 
       - name: Trivy Scan - Docker image
         uses: aquasecurity/trivy-action@0.13.0
