@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init-job
+  namespace: flask
+spec:
+  template:
+    spec:
+      containers:
+      - name: db-init
+        image: shruti9023/flask-auth-devops:latest
+        command: ["python3", "init_db.py"]
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: flask-secret
+              key: DB_HOST
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: flask-secret
+              key: MYSQL_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: flask-secret
+              key: MYSQL_PASSWORD
+        - name: DB_NAME
+          value: "flaskdb"
+      restartPolicy: Never
+  backoffLimit: 3
