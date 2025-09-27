@@ -1,82 +1,83 @@
 name: Build and Deploy Flask App
+
 on:
-    push:
-        branches:
-        - main
-    workflow_dispatch:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
 jobs:
-    build-and-deploy:
-        name: Build docker image and deploy to EKS
-        runs-on: ubuntu-latest
+  build-and-deploy:
+    name: Build docker image and deploy to EKS
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-            - name: Set up Python
-              uses: actions/setup-python@v4
-              with:
-                python-version: '3.12'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-            - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-            - name: Login to DockerHub
-              uses: docker/login-action@v2
-              with:
-                username: ${{ secrets.DOCKER_USERNAME }}
-                password: ${{ secrets.DOCKER_PASSWORD }}
-           
-            - name: Trivy Scan - Docker image
-              uses: aquasecurity/trivy-action@0.13.0
-              with:
-               image-ref: shruti9023/flask-auth-devops:latest
-               format: table
-               exit-code: 1
-               ignore-unfixed: true
-               vuln-type: os,library
-               severity: CRITICAL
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-            - name: Build and Push Docker image
-              uses: docker/build-push-action@v5
-              with:
-                context: .
-                push: true
-                tags: shruti9023/flask-auth-devops:latest
+      - name: Trivy Scan - Docker image
+        uses: aquasecurity/trivy-action@0.13.0
+        with:
+          image-ref: shruti9023/flask-auth-devops:latest
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL
 
-            
-            - name: SonarQube Scan
-              uses: sonarsource/sonarqube-scan-action@v2
-              with:
-               projectBaseDir: .
-               args: >
-                -Dsonar.projectKey=flask-auth-devops
-                -Dsonar.sources=.
-              env:
-               SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-               SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: shruti9023/flask-auth-devops:latest
 
-             - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v2
-              with:
-                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                aws-region: us-east-1
-            
-            - name: Update Kubeconfig for EKS
-              run: aws eks update-kubeconfig --region us-east-1 --name blackforge-eks-cluster
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v2
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.projectKey=flask-auth-devops
+            -Dsonar.sources=.
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-            - name: Test Kubernetes access
-              run: kubectl get nodes
-              
-            - name: Deploy Init jobs
-              run: |
-                kubectl apply -f k8s/init-job.yaml -n flask
-                kubectl wait --for=condition=complete job/db-init-job -n flask --timeout=60s || true
-                kubectl delete job db-init-job -n flask || true
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-            - name: Deploy to EKS
-              run: |
-                kubectl create namespace flask --dry-run=client -o yaml | kubectl apply -f -
-                kubectl apply -f k8s/ -n flask
-                kubectl rollout status deployment/flask-app -n flask
+      - name: Update Kubeconfig for EKS
+        run: aws eks update-kubeconfig --region us-east-1 --name blackforge-eks-cluster
+
+      - name: Test Kubernetes access
+        run: kubectl get nodes
+
+      - name: Deploy Init jobs
+        run: |
+          kubectl apply -f k8s/init-job.yaml -n flask
+          kubectl wait --for=condition=complete job/db-init-job -n flask --timeout=60s || true
+          kubectl delete job db-init-job -n flask || true
+
+      - name: Deploy to EKS
+        run: |
+          kubectl create namespace flask --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f k8s/ -n flask
+          kubectl rollout status deployment/flask-app -n flask
