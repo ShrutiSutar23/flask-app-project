@@ -6,4 +6,4 @@ crash.log
 *.tfstate.backup
 .terraform.lock.hcl
 
-
+.env
