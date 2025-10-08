@@ -1,3 +1,5 @@
+
+# here we are creating database using terraform
 provider "aws" {
   region = var.aws_region
 }
